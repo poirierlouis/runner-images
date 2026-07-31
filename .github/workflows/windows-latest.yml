@@ -1,0 +1,53 @@
+name: Debug Windows SDK Environment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect-sdk:
+    runs-on: windows-latest
+    steps:
+      - name: Check SDK Folders on Disk
+        shell: powershell
+        run: |
+          Write-Host "=== Windows Kits Directory Listing ===" -ForegroundColor Cyan
+          $sdkPath = "C:\Program Files (x86)\Windows Kits\10\include"
+          if (Test-Path $sdkPath) {
+              Get-ChildItem -Path $sdkPath | Select-Object Name, FullName | Format-Table -AutoSize
+          } else {
+              Write-Host "Path $sdkPath does not exist!" -ForegroundColor Red
+          }
+
+      - name: Locate Visual Studio Installations via vswhere
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+
+      - name: Inspect Windows SDK Registry Keys
+        shell: powershell
+        run: |
+          Write-Host "=== Windows SDK Registry Keys ===" -ForegroundColor Cyan
+          $regPaths = @(
+              "HKLM:\SOFTWARE\Microsoft\Microsoft SDKs\Windows\v10.0",
+              "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Microsoft SDKs\Windows\v10.0"
+          )
+          foreach ($path in $regPaths) {
+              if (Test-Path $path) {
+                  Write-Host "`nRegistry Path: $path" -ForegroundColor Yellow
+                  Get-ChildItem -Path $path | Select-Object PSChildName | Format-Table -AutoSize
+                  Get-ItemProperty -Path $path | Out-String | Write-Host
+              }
+          }
+
+      - name: Check Active Visual Studio Environment Variables
+        shell: cmd
+        run: |
+          echo === Environment Variables Exposed by vcvarsall.bat ===
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          echo.
+          echo --- Output INCLUDE path ---
+          echo %INCLUDE%
+          echo.
+          echo --- Output WINDOWSSDKVERSION ---
+          echo %WINDOWSSDKVERSION%
